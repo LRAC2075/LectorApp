@@ -2,6 +2,7 @@ Flask
 gunicorn
 Pillow
 pdf2image
-google-cloud-vision
+pytesseract
+google-generativeai
 numpy
 opencv-python
