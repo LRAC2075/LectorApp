@@ -1,8 +1,4 @@
 Flask
 gunicorn
 Pillow
-pdf2image
-pytesseract
-google-generativeai
-numpy
-opencv-python
+google-cloud-vision

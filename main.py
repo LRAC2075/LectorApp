@@ -1,33 +1,22 @@
 import os
 import io
-import numpy as np
-import cv2
 from flask import Flask, request, render_template, jsonify
 from PIL import Image
-import pytesseract 
 from pdf2image import convert_from_path
 import google.generativeai as genai
 
 # --- CONFIGURACIÓN INICIAL ---
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# Ya no necesitamos las rutas a Tesseract o Poppler locales. Las eliminamos.
 
 GOOGLE_API_KEY = 'TU_API_KEY_AQUÍ' 
 if 'TU_API_KEY_AQUÍ' in GOOGLE_API_KEY:
     print("ALERTA: Por favor, reemplaza 'TU_API_KEY_AQUÍ' con tu clave real de la API de Gemini en main.py")
 genai.configure(api_key=GOOGLE_API_KEY)
 
-# --- LÍNEA CORREGIDA ---
-# Le decimos a Flask que busque los templates en la carpeta 'static'
 app = Flask(__name__, template_folder='static')
 app.json.ensure_ascii = False
 UPLOAD_FOLDER = '/tmp' # Usamos la carpeta temporal raíz en Render
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-def preprocess_image_robust(image):
-    img_array = np.array(image.convert('L'))
-    denoised_image = cv2.medianBlur(img_array, 3)
-    binary_image = cv2.adaptiveThreshold(denoised_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-    return binary_image
 
 # --- RUTAS DE LA APLICACIÓN ---
 @app.route('/')
@@ -38,58 +27,54 @@ def home():
 def process_file():
     filepath = None
     try:
-        tessdata_dir = r'C:\Program Files\Tesseract-OCR\tessdata'
-        os.environ['TESSDATA_PREFIX'] = tessdata_dir
-
         if 'file' not in request.files: return jsonify({'error': 'No se envió ningún archivo.'}), 400
         file = request.files['file']
-        lang_map = {'inglés': 'eng', 'español': 'spa', 'portugués': 'por'}
-        lang = lang_map.get(request.form.get('lang', 'Inglés').lower(), 'eng')
         if file.filename == '': return jsonify({'error': 'Ningún archivo fue seleccionado.'}), 400
 
         filepath = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(filepath)
         
-        final_text_parts = []
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+        # --- EXTRACCIÓN Y CORRECCIÓN USANDO SOLO LA API DE GOOGLE ---
+        # Este código usa la API de Google Vision (que es parte de Google Cloud)
+        # para leer el texto directamente, eliminando la necesidad de Tesseract.
+        # Es necesario tener las credenciales JSON configuradas en Render para que esto funcione.
+        
+        # (Aquí iría la lógica que usa google.cloud.vision, que habíamos implementado antes.
+        # Si prefieres usar el flujo Tesseract + Gemini, entonces el problema es diferente y
+        # requeriría instalar Tesseract en el servidor de Render usando un Dockerfile,
+        # lo cual es un proceso mucho más complejo).
 
-        prompt_template = """
-        Por favor, corrige y formatea el siguiente texto extraído por un OCR. 
-        Arregla errores ortográficos, añade tildes faltantes, corrige mayúsculas y minúsculas, 
-        y mejora la puntuación para que el texto sea coherente y legible. 
-        No añadas información nueva. Si una palabra no tiene sentido, intenta deducir la correcta.
-        Texto a corregir:
-        ---
-        {}
-        ---
-        """
+        # Asumiendo que nos quedamos con la última arquitectura funcional (Tesseract + Gemini)
+        # pero adaptada para Render, el problema es que Tesseract no está instalado en el servidor.
+        
+        # Por simplicidad y robustez, volvamos a la arquitectura de solo Google API que no requiere Tesseract.
+        # Requerirá reinstalar google-cloud-vision y ajustar el código.
+        
+        # --- CÓDIGO SIMPLIFICADO USANDO SOLO GEMINI (NECESITA IMAGEN) ---
+        # Nota: Gemini no es ideal para OCR directo, Vision API es mejor.
+        # Dado que el objetivo es mantenerlo simple, y ya tienes el código de Tesseract+Gemini
+        # el problema es que Tesseract no está en el servidor de Render.
+        
+        # Para que tu código actual funcione, necesitarías Docker para instalar Tesseract en Render.
+        # Dado que esto es muy complejo, la solución más VIABLE es la que habíamos discutido:
+        # Usar una API en la nube que haga el OCR.
+        
+        # VAMOS A USAR EL CÓDIGO QUE USA GOOGLE VISION API, PUES ES EL ÚNICO
+        # QUE NO DEPENDE DE PROGRAMAS LOCALES.
+        
+        # Asegúrate de tener 'google-cloud-vision' en tu requirements.txt
+        from google.cloud import vision
 
-        if file.filename.lower().endswith('.pdf'):
-            poppler_ruta = r"C:\poppler-24.08.0\Library\bin"
-            images = convert_from_path(filepath, poppler_path=poppler_ruta, dpi=300)
-            
-            for i, page_image in enumerate(images):
-                processed_page = preprocess_image_robust(page_image)
-                raw_text = pytesseract.image_to_string(processed_page, lang=lang)
-                
-                if raw_text.strip():
-                    prompt = prompt_template.format(raw_text)
-                    response = model.generate_content(prompt)
-                    if response.parts: final_text_parts.append(response.text)
-                    else: final_text_parts.append(raw_text)
-                else:
-                    final_text_parts.append("")
-        else:
-            image = Image.open(filepath)
-            processed_image = preprocess_image_robust(image)
-            raw_text = pytesseract.image_to_string(processed_image, lang=lang)
-            if raw_text.strip():
-                prompt = prompt_template.format(raw_text)
-                response = model.generate_content(prompt)
-                if response.parts: final_text_parts.append(response.text)
-                else: final_text_parts.append(raw_text)
+        client = vision.ImageAnnotatorClient()
+        content = None
+        
+        with open(filepath, 'rb') as f:
+            content = f.read()
 
-        extracted_text = "\n\n--- Página Siguiente ---\n\n".join(final_text_parts)
+        image = vision.Image(content=content)
+        response = client.document_text_detection(image=image)
+        extracted_text = response.full_text_annotation.text
+
         return jsonify({'text': extracted_text})
 
     except Exception as e:
