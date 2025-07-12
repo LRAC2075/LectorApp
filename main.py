@@ -1,23 +1,34 @@
 import os
-import io
+import numpy as np
+import cv2
 from flask import Flask, request, render_template, jsonify
+from PIL import Image # <-- ASEGÚRATE DE QUE ESTA LÍNEA EXISTA
+import pytesseract 
 from pdf2image import convert_from_path
-from google.cloud import vision
+import google.generativeai as genai
 
-# --- CONFIGURACIÓN PARA RENDER ---
-# Render montará el archivo de credenciales en esta ruta específica
-# Lo configuraremos en el panel de Render en un paso posterior.
-CREDENTIALS_PATH = '/etc/secrets/google-credentials.json'
-if os.path.exists(CREDENTIALS_PATH):
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = CREDENTIALS_PATH
-else:
-    # Esto es para que siga funcionando en tu PC si el archivo está localmente
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = 'google-credentials.json'
+# --- CONFIGURACIÓN INICIAL ---
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-app = Flask(__name__, static_folder='static', template_folder='static')
+# ¡IMPORTANTE! Reemplaza con tu Clave de API real de Google AI Studio
+GOOGLE_API_KEY = 'TU_API_KEY_AQUÍ' 
+if 'TU_API_KEY_AQUÍ' in GOOGLE_API_KEY:
+    print("ALERTA: Por favor, reemplaza 'TU_API_KEY_AQUÍ' con tu clave real de la API de Gemini en app.py")
+genai.configure(api_key=GOOGLE_API_KEY)
+
+app = Flask(__name__)
 app.json.ensure_ascii = False
-UPLOAD_FOLDER = '/tmp/uploads'
+UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def preprocess_image_robust(image):
+    """
+    Función robusta para limpiar una imagen para OCR.
+    """
+    img_array = np.array(image.convert('L'))
+    denoised_image = cv2.medianBlur(img_array, 3)
+    binary_image = cv2.adaptiveThreshold(denoised_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+    return binary_image
 
 # --- RUTAS DE LA APLICACIÓN ---
 @app.route('/')
@@ -32,67 +43,72 @@ def process_file():
         os.environ['TESSDATA_PREFIX'] = tessdata_dir
 
         if 'file' not in request.files: return jsonify({'error': 'No se envió ningún archivo.'}), 400
-        
         file = request.files['file']
-        input_lang_name = request.form.get('lang', 'Inglés')
-        output_lang_name = request.form.get('output_lang', 'Mismo idioma (solo corregir)')
         lang_map = {'inglés': 'eng', 'español': 'spa', 'portugués': 'por'}
-        lang_code = lang_map.get(input_lang_name.lower(), 'eng')
-        
+        lang = lang_map.get(request.form.get('lang', 'Inglés').lower(), 'eng')
         if file.filename == '': return jsonify({'error': 'Ningún archivo fue seleccionado.'}), 400
 
         filepath = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(filepath)
         
-        raw_text = ""
+        final_text_parts = []
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+
+        prompt_template = """
+        Por favor, corrige y formatea el siguiente texto extraído por un OCR. 
+        Arregla errores ortográficos, añade tildes faltantes, corrige mayúsculas y minúsculas, 
+        y mejora la puntuación para que el texto sea coherente y legible. 
+        No añadas información nueva. Si una palabra no tiene sentido, intenta deducir la correcta.
+        Texto a corregir:
+        ---
+        {}
+        ---
+        """
+
         if file.filename.lower().endswith('.pdf'):
             poppler_ruta = r"C:\poppler-24.08.0\Library\bin"
             images = convert_from_path(filepath, poppler_path=poppler_ruta, dpi=300)
-            text_pages = [pytesseract.image_to_string(p, lang=lang_code) for p in images]
-            raw_text = "\n\n".join(text_pages)
+            
+            print(f"Procesando {len(images)} páginas del PDF...")
+            for i, page_image in enumerate(images):
+                print(f"  - Página {i+1}: Extrayendo texto con Tesseract...")
+                processed_page = preprocess_image_robust(page_image)
+                raw_text = pytesseract.image_to_string(processed_page, lang=lang)
+                
+                if raw_text.strip():
+                    print(f"  - Página {i+1}: Corrigiendo texto con IA...")
+                    prompt = prompt_template.format(raw_text)
+                    response = model.generate_content(prompt)
+                    
+                    if response.parts:
+                        final_text_parts.append(response.text)
+                    else:
+                        final_text_parts.append(raw_text)
+                else:
+                    final_text_parts.append("")
         else:
+            print("Procesando imagen única...")
+            # La variable se llama 'image'
             image = Image.open(filepath)
-            raw_text = pytesseract.image_to_string(image, lang=lang_code)
+            # Pasamos 'image' a la función
+            processed_image = preprocess_image_robust(image)
+            # Usamos el resultado 'processed_image' para el OCR
+            raw_text = pytesseract.image_to_string(processed_image, lang=lang)
 
-        final_text = raw_text
-        if raw_text.strip():
-            model = genai.GenerativeModel('gemini-1.5-flash-latest')
-            
-            # --- PROMPT MEJORADO ---
-            # Se ha añadido una instrucción explícita para reparar palabras incompletas.
-            if output_lang_name == 'Mismo idioma (solo corregir)':
-                prompt = f"""
-                Tu tarea es actuar como un experto en corrección de textos extraídos por OCR.
-                Corrige y formatea el siguiente texto. El idioma original es {input_lang_name}.
-                Presta especial atención a palabras a las que les puedan faltar letras o tildes (ej. 'fabricacin' debe ser 'fabricación').
-                Usa el contexto para deducir la palabra correcta. Mejora la puntuación y el uso de mayúsculas.
-                No añadas información que no esté implícita en el texto.
+            if raw_text.strip():
+                prompt = prompt_template.format(raw_text)
+                response = model.generate_content(prompt)
+                if response.parts:
+                    final_text_parts.append(response.text)
+                else:
+                    final_text_parts.append(raw_text)
 
-                Texto a corregir:
-                ---
-                {raw_text}
-                ---
-                """
-            else:
-                prompt = f"""
-                Realiza dos pasos:
-                1. Primero, corrige el siguiente texto de un OCR. El idioma es {input_lang_name}. Presta especial atención a palabras incompletas o sin tildes, usando el contexto para repararlas.
-                2. Segundo, traduce el texto ya corregido al idioma {output_lang_name}.
-                El resultado final debe ser únicamente la traducción limpia y formateada.
-
-                Texto a procesar:
-                ---
-                {raw_text}
-                ---
-                """
-            
-            response = model.generate_content(prompt)
-            if response.parts:
-                final_text = response.text
-
-        return jsonify({'text': final_text})
+        print("Proceso completado. Uniendo resultados.")
+        extracted_text = "\n\n--- Página Siguiente ---\n\n".join(final_text_parts)
+        return jsonify({'text': extracted_text})
 
     except Exception as e:
+        print(f"ERROR: {e}")
         return jsonify({'error': f"Ocurrió un error en el servidor: {str(e)}"}), 500
     
     finally:
