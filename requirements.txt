@@ -1,0 +1,5 @@
+Flask
+Pillow
+pdf2image
+google-cloud-vision
+gunicorn
