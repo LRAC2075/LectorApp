@@ -1,5 +1,7 @@
 Flask
+gunicorn
 Pillow
 pdf2image
 google-cloud-vision
-gunicorn
+numpy
+opencv-python
