@@ -1,8 +1,8 @@
-// This listener waits for the entire HTML page to be ready before running the code.
-// This solves the '... is null' errors.
+// Este listener es la clave: espera a que el HTML esté listo antes de ejecutar el código.
+// Esto soluciona los errores '... is null'.
 document.addEventListener('DOMContentLoaded', () => {
     
-    // --- Element References ---
+    // --- Referencias a los elementos del DOM ---
     const uploadSection = document.getElementById('upload-section');
     const loadingSection = document.getElementById('loading-section');
     const resultSection = document.getElementById('result-section');
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let fullText = '';
     let lastSpokenCharIndex = 0;
 
-    // --- File Upload and Drag & Drop Logic ---
+    // --- Lógica de Carga de Archivos (Drag & Drop) ---
     function handleFiles(files) {
         if (files.length === 0) return;
         fileInput.files = files; 
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- Interactive Text Rendering ---
+    // --- Función para Renderizar Texto Interactivo ---
     function renderText(text) {
         fullText = text;
         textOutput.innerHTML = ''; 
@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Advanced Text-to-Speech Logic ---
+    // --- Lógica de Texto a Voz Mejorada ---
     function playText(startIndex = 0) {
         if (synth.speaking) synth.cancel();
         
@@ -119,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (highlighted) highlighted.classList.remove('highlight');
     }
 
-    // --- Control Event Listeners ---
+    // --- Listeners de Eventos para los Controles ---
     playBtn.addEventListener('click', () => {
         if (synth.paused) synth.resume();
         else playText(lastSpokenCharIndex);
@@ -152,7 +152,6 @@ document.addEventListener('DOMContentLoaded', () => {
         lastSpokenCharIndex = 0;
     });
 
-    // --- Click-to-Play Event Listener ---
     textOutput.addEventListener('click', (e) => {
         if (e.target.tagName === 'SPAN') {
             const charIndex = parseInt(e.target.dataset.charIndex, 10);
