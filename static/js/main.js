@@ -40,7 +40,6 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         if (!fileInput.files[0]) { alert('Por favor, selecciona un archivo primero.'); return; }
         
-        // Ocultamos la sección de subida y mostramos la de carga
         uploadSection.classList.add('hidden');
         loadingSection.classList.remove('hidden');
         resultSection.classList.add('hidden');
@@ -58,7 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             renderText(`Error de conexión: ${error.message}`);
         } finally {
-            // Ocultamos la carga y mostramos los resultados
             loadingSection.classList.add('hidden');
             resultSection.classList.remove('hidden');
         }
@@ -67,14 +65,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- FUNCIÓN PARA RENDERIZAR TEXTO INTERACTIVO ---
     function renderText(text) {
         fullText = text;
-        textOutput.innerHTML = ''; // Limpiamos contenido anterior
+        textOutput.innerHTML = ''; 
         let charIndex = 0;
-        // Dividimos por palabra y por espacio para mantener el formato
         text.split(/(\s+)/).forEach(part => {
             if (part.trim() !== '') {
                 const wordSpan = document.createElement('span');
                 wordSpan.textContent = part;
-                wordSpan.dataset.charIndex = charIndex; // Guardamos su posición
+                wordSpan.dataset.charIndex = charIndex;
                 textOutput.appendChild(wordSpan);
             } else {
                 textOutput.appendChild(document.createTextNode(part));
