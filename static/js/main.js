@@ -20,12 +20,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let fullText = '';
     let lastSpokenCharIndex = 0;
 
-    // --- LÓGICA DE CARGA DE ARCHIVOS ---
+    // --- LÓGICA DE CARGA DE ARCHIVOS (DRAG & DROP) ---
     function handleFiles(files) {
         if (files.length === 0) return;
-        fileInput.files = files;
+        fileInput.files = files; 
         fileNameDisplay.textContent = files[0].name;
-        uploadForm.requestSubmit();
+        uploadForm.requestSubmit(); 
     }
     dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); });
     dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
@@ -36,37 +36,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!fileInput.files[0]) { alert('Por favor, selecciona un archivo primero.'); return; }
         uploadSection.classList.add('hidden');
         loadingSection.classList.remove('hidden');
+        resultSection.classList.add('hidden'); // Ocultar resultados anteriores
         const formData = new FormData(uploadForm);
         try {
             const response = await fetch('/process', { method: 'POST', body: formData });
             const data = await response.json();
-            loadingSection.classList.add('hidden');
-            resultSection.classList.remove('hidden');
+            
             if (response.ok) {
                 renderText(data.text);
             } else {
                 renderText(`Error: ${data.error}`);
             }
         } catch (error) {
+            renderText(`Error de conexión: ${error.message}`);
+        } finally {
             loadingSection.classList.add('hidden');
             resultSection.classList.remove('hidden');
-            renderText(`Error de conexión: ${error.message}`);
         }
     });
 
-    // --- NUEVA FUNCIÓN PARA RENDERIZAR TEXTO INTERACTIVO ---
+    // --- FUNCIÓN PARA RENDERIZAR TEXTO INTERACTIVO ---
     function renderText(text) {
         fullText = text;
-        textOutput.innerHTML = ''; // Limpiamos el contenido anterior
+        textOutput.innerHTML = ''; 
         let charIndex = 0;
         text.split(/(\s+)/).forEach(part => {
             if (part.trim() !== '') {
                 const wordSpan = document.createElement('span');
                 wordSpan.textContent = part;
-                wordSpan.dataset.charIndex = charIndex; // Guardamos su posición
+                wordSpan.dataset.charIndex = charIndex;
                 textOutput.appendChild(wordSpan);
             } else {
-                // Mantenemos los espacios y saltos de línea
                 textOutput.appendChild(document.createTextNode(part));
             }
             charIndex += part.length;
@@ -82,9 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (textToSpeak.trim() === '') return;
 
         utterance = new SpeechSynthesisUtterance(textToSpeak);
-        const langSelect = document.getElementById('output-lang-select').value.toLowerCase();
-        const langMap = { "español": "es-ES", "inglés": "en-US", "alemán": "de-DE", "coreano": "ko-KR", "japonés": "ja-JP" };
-        utterance.lang = langMap[langSelect] || 'es-ES'; // Default a español si no es una traducción
+        // La API de google ya entrega el texto en el idioma correcto,
+        // por lo que no es necesario especificarlo aquí, el navegador lo detectará.
         utterance.rate = parseFloat(speedControl.value);
 
         utterance.onboundary = (event) => {
@@ -96,7 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
             lastSpokenCharIndex = 0;
             removeHighlight();
         };
-
         synth.speak(utterance);
     }
 
@@ -148,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lastSpokenCharIndex = 0;
     });
 
-    // --- NUEVO EVENT LISTENER PARA CLIC EN TEXTO ---
+    // --- EVENT LISTENER PARA CLIC EN TEXTO ---
     textOutput.addEventListener('click', (e) => {
         if (e.target.tagName === 'SPAN') {
             const charIndex = parseInt(e.target.dataset.charIndex, 10);
