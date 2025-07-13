@@ -1,5 +1,8 @@
+// Esperamos a que todo el contenido del HTML se cargue antes de ejecutar el script.
+// Esto soluciona los errores '... is null'.
 document.addEventListener('DOMContentLoaded', () => {
-    // Referencias a los elementos del DOM
+    
+    // --- Referencias a los elementos del DOM ---
     const uploadSection = document.getElementById('upload-section');
     const loadingSection = document.getElementById('loading-section');
     const resultSection = document.getElementById('result-section');
@@ -27,29 +30,35 @@ document.addEventListener('DOMContentLoaded', () => {
         fileNameDisplay.textContent = files[0].name;
         uploadForm.requestSubmit(); 
     }
+
     dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); });
     dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
     dropArea.addEventListener('drop', (e) => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
     fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
     uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!fileInput.files[0]) { alert('Por favor, selecciona un archivo primero.'); return; }
+        
+        // Ocultamos la sección de subida y mostramos la de carga
         uploadSection.classList.add('hidden');
         loadingSection.classList.remove('hidden');
-        resultSection.classList.add('hidden'); // Ocultar resultados anteriores
+        resultSection.classList.add('hidden');
+        
         const formData = new FormData(uploadForm);
         try {
             const response = await fetch('/process', { method: 'POST', body: formData });
             const data = await response.json();
             
-            if (response.ok) {
+            if (response.ok && data.text) {
                 renderText(data.text);
             } else {
-                renderText(`Error: ${data.error}`);
+                renderText(`Error: ${data.error || 'Respuesta inesperada del servidor.'}`);
             }
         } catch (error) {
             renderText(`Error de conexión: ${error.message}`);
         } finally {
+            // Ocultamos la carga y mostramos los resultados
             loadingSection.classList.add('hidden');
             resultSection.classList.remove('hidden');
         }
@@ -58,13 +67,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- FUNCIÓN PARA RENDERIZAR TEXTO INTERACTIVO ---
     function renderText(text) {
         fullText = text;
-        textOutput.innerHTML = ''; 
+        textOutput.innerHTML = ''; // Limpiamos contenido anterior
         let charIndex = 0;
+        // Dividimos por palabra y por espacio para mantener el formato
         text.split(/(\s+)/).forEach(part => {
             if (part.trim() !== '') {
                 const wordSpan = document.createElement('span');
                 wordSpan.textContent = part;
-                wordSpan.dataset.charIndex = charIndex;
+                wordSpan.dataset.charIndex = charIndex; // Guardamos su posición
                 textOutput.appendChild(wordSpan);
             } else {
                 textOutput.appendChild(document.createTextNode(part));
@@ -75,15 +85,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- LÓGICA DE TEXTO A VOZ MEJORADA ---
     function playText(startIndex = 0) {
-        if (synth.speaking) {
-            synth.cancel();
-        }
+        if (synth.speaking) synth.cancel();
+        
         const textToSpeak = fullText.substring(startIndex);
         if (textToSpeak.trim() === '') return;
 
         utterance = new SpeechSynthesisUtterance(textToSpeak);
-        // La API de google ya entrega el texto en el idioma correcto,
-        // por lo que no es necesario especificarlo aquí, el navegador lo detectará.
         utterance.rate = parseFloat(speedControl.value);
 
         utterance.onboundary = (event) => {
@@ -112,9 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function removeHighlight() {
         const highlighted = textOutput.querySelector('.highlight');
-        if (highlighted) {
-            highlighted.classList.remove('highlight');
-        }
+        if (highlighted) highlighted.classList.remove('highlight');
     }
 
     // --- EVENT LISTENERS PARA CONTROLES ---
@@ -122,12 +127,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (synth.paused) synth.resume();
         else playText(lastSpokenCharIndex);
     });
+
     pauseBtn.addEventListener('click', () => synth.pause());
+
     stopBtn.addEventListener('click', () => {
         synth.cancel();
         lastSpokenCharIndex = 0;
         removeHighlight();
     });
+
     speedControl.addEventListener('input', () => {
         const speed = parseFloat(speedControl.value).toFixed(1);
         speedLabel.textContent = `${speed}x`;
@@ -135,6 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
             playText(lastSpokenCharIndex);
         }
     });
+
     restartBtn.addEventListener('click', () => {
         synth.cancel();
         resultSection.classList.add('hidden');
@@ -146,7 +155,6 @@ document.addEventListener('DOMContentLoaded', () => {
         lastSpokenCharIndex = 0;
     });
 
-    // --- EVENT LISTENER PARA CLIC EN TEXTO ---
     textOutput.addEventListener('click', (e) => {
         if (e.target.tagName === 'SPAN') {
             const charIndex = parseInt(e.target.dataset.charIndex, 10);
