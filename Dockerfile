@@ -4,11 +4,14 @@ FROM python:3.9-slim
 # Establecemos el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
-# Actualizamos los paquetes de Linux e instalamos Tesseract y el paquete de idioma español
-# Esto es como si lo instalaras en una computadora Linux nueva
+# Actualizamos los paquetes de Linux e instalamos las herramientas necesarias:
+# tesseract-ocr: El motor de OCR.
+# tesseract-ocr-spa: El paquete de idioma español para Tesseract.
+# poppler-utils: La herramienta para manejar PDFs que necesita pdf2image.
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     tesseract-ocr-spa \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiamos primero el archivo de dependencias
@@ -24,5 +27,4 @@ COPY . .
 EXPOSE 8000
 
 # El comando que se ejecutará cuando el contenedor inicie
-# Le decimos a Gunicorn que escuche en todas las interfaces en el puerto 8000
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "main:app"]
