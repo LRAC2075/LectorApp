@@ -1,5 +1,5 @@
 Flask
-gunicorn
 Pillow
 pdf2image
-google-cloud-vision
+pytesseract
+google-generativeai
