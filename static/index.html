@@ -17,7 +17,7 @@
             <div id="upload-section">
                 <header class="text-center mb-8">
                     <h1 class="text-3xl md:text-5xl font-bold text-gray-800">Lector Inteligente</h1>
-                    <p class="text-gray-600 mt-2">Extrae y escucha el texto de cualquier PDF o imagen.</p>
+                    <p class="text-gray-600 mt-2">Extrae, corrige, traduce y narra el texto de cualquier documento.</p>
                 </header>
                 <form id="upload-form">
                     <div id="drop-area" class="border-2 border-dashed border-gray-300 p-8 text-center rounded-lg mb-4 transition-colors">
@@ -27,16 +27,29 @@
                         <p id="file-name" class="mt-4 text-sm text-gray-700 font-semibold"></p>
                     </div>
                     
-                    <div class="mb-4">
-                        <label for="lang-select" class="block text-gray-700 font-bold mb-2">Idioma del Documento:</label>
-                        <select id="lang-select" name="lang" class="w-full p-2 border border-gray-300 rounded-lg">
-                            <option value="spa">Español</option>
-                            <option value="eng">Inglés</option>
-                            <option value="por">Portugués</option>
-                        </select>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="lang-select" class="block text-gray-700 font-bold mb-2">Idioma del Documento:</label>
+                            <select id="lang-select" name="lang" class="w-full p-2 border border-gray-300 rounded-lg">
+                                <option value="spa">Español</option>
+                                <option value="eng">Inglés</option>
+                                <option value="por">Portugués</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="output-lang-select" class="block text-gray-700 font-bold mb-2">Idioma de Salida:</label>
+                            <select id="output-lang-select" name="output_lang" class="w-full p-2 border border-gray-300 rounded-lg">
+                                <option>Mismo idioma (solo corregir)</option>
+                                <option>Español</option>
+                                <option>Inglés</option>
+                                <option>Alemán</option>
+                                <option>Coreano</option>
+                                <option>Japonés</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <button type="submit" class="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-green-700 focus:ring-opacity-50">Procesar Documento</button>
+                    <button type="submit" class="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 transition-colors">Procesar Documento</button>
                 </form>
             </div>
 
